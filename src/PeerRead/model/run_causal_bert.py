@@ -19,6 +19,8 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import select
+import sys
 import time
 
 import numpy as np
@@ -204,6 +206,15 @@ def make_dragonnet_metrics():
     return {'g': g_metrics, 'q0': q0_metrics, 'q1': q1_metrics}
 
 
+def wait_for_input_or_timeout(timeout):
+    print(f"Press Enter within {timeout} seconds to continue or wait for timeout...")
+    rlist, _, _ = select.select([sys.stdin], [], [], timeout)
+    if rlist:
+        return sys.stdin.readline().strip()
+    else:
+        return None
+
+
 def main(_):
     # Users should always run this script under TF 2.x
     assert tf.version.VERSION.startswith('2.1')
@@ -217,6 +228,9 @@ def main(_):
     #
     # Configuration stuff
     #
+    print("Setting config")
+    wait_for_input_or_timeout(5)
+
     bert_config = modeling.BertConfig.from_json_file(FLAGS.bert_config_file)
     epochs = FLAGS.num_train_epochs
     # train_data_size = 11778
@@ -224,6 +238,9 @@ def main(_):
     steps_per_epoch = int(train_data_size / FLAGS.train_batch_size)  # 368
     warmup_steps = int(epochs * train_data_size * 0.1 / FLAGS.train_batch_size)
     initial_lr = FLAGS.learning_rate
+
+    print("Setting GPU strategy")
+    wait_for_input_or_timeout(5)
 
     strategy = None
     if FLAGS.strategy_type == 'mirror':
@@ -263,6 +280,8 @@ def main(_):
         return dragon_model, core_model
 
     if FLAGS.mode == 'train_and_predict':
+        print("Starting training")
+        wait_for_input_or_timeout(5)
         # training. strategy.scope context allows use of multiple devices
         with strategy.scope():
             keras_train_data = make_dataset(is_training=True, do_masking=FLAGS.do_masking)
@@ -270,25 +289,42 @@ def main(_):
             dragon_model, core_model = _get_dragon_model(FLAGS.do_masking)
             optimizer = dragon_model.optimizer
 
+            print("Model loaded")
+            wait_for_input_or_timeout(5)
+
             if FLAGS.init_checkpoint:
+                print("Init checkpoint")
+                wait_for_input_or_timeout(5)
                 checkpoint = tf.train.Checkpoint(model=core_model)
-                checkpoint.restore(FLAGS.init_checkpoint).assert_existing_objects_matched()
+                # checkpoint.restore(FLAGS.init_checkpoint).assert_existing_objects_matched()
+                checkpoint.restore(FLAGS.init_checkpoint)
 
             latest_checkpoint = tf.train.latest_checkpoint(FLAGS.model_dir)
             if latest_checkpoint:
+                print("Latest checkpoint exists")
+                wait_for_input_or_timeout(5)
                 dragon_model.load_weights(latest_checkpoint)
+
+            print("Checkpoint restored")
+            wait_for_input_or_timeout(5)
 
             dragon_model.compile(optimizer=optimizer,
                                  loss={'g': 'binary_crossentropy', 'q0': 'binary_crossentropy',
                                        'q1': 'binary_crossentropy'},
                                  loss_weights={'g': FLAGS.treatment_loss_weight, 'q0': 0.1, 'q1': 0.1},
                                  weighted_metrics=make_dragonnet_metrics())
+            
+            print("Model compiled")
+            wait_for_input_or_timeout(5)
 
             summary_callback = tf.keras.callbacks.TensorBoard(FLAGS.model_dir, update_freq=128)
             checkpoint_dir = os.path.join(FLAGS.model_dir, 'model_checkpoint.{epoch:02d}')
             checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_dir, save_weights_only=True, period=10)
 
             callbacks = [summary_callback, checkpoint_callback]
+
+            print("Starting training")
+            wait_for_input_or_timeout(5)
 
             dragon_model.fit(
                 x=keras_train_data,
@@ -297,6 +333,9 @@ def main(_):
                 epochs=epochs,
                 # vailidation_steps=eval_steps,
                 callbacks=callbacks)
+            
+            print("Training complete")
+            wait_for_input_or_timeout(5)
 
         # save a final model checkpoint (so we can restore weights into model w/o training idiosyncracies)
         if FLAGS.model_export_path:
@@ -311,16 +350,27 @@ def main(_):
 
     # make predictions and write to file
 
+    print("Strating prediction process")
+    wait_for_input_or_timeout(5)
+
     # create data and model w/o masking
     eval_data = make_dataset(is_training=False, do_masking=False)
     dragon_model, core_model = _get_dragon_model(do_masking=False)
     # reload the model weights (necessary because we've obliterated the masking)
     checkpoint = tf.train.Checkpoint(model=dragon_model)
     checkpoint.restore(saved_path).assert_existing_objects_matched()
+
+    print("Checkpoint restored")
+    wait_for_input_or_timeout(5)
     # loss added as simple hack to bizzarre keras bug that requires compile for predict, and a loss for compile
     dragon_model.add_loss(lambda: 0)
     dragon_model.compile()
 
+    print("Model compiled")
+    wait_for_input_or_timeout(5)
+
+    print("Generating predictions")
+    wait_for_input_or_timeout(5)
     outputs = dragon_model.predict(x=eval_data)
 
     out_dict = {}
@@ -333,9 +383,14 @@ def main(_):
     label_dataset = eval_data.map(lambda f, l: l)
     data_df = dataset_to_pandas_df(label_dataset)
 
+    print("Saving predictions")
+    wait_for_input_or_timeout(5)
+
     outs = data_df.join(predictions)
     with tf.io.gfile.GFile(FLAGS.prediction_file, "w") as writer:
         writer.write(outs.to_csv(sep="\t"))
+
+    print("DONE")
 
 
 if __name__ == '__main__':

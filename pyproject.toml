@@ -30,6 +30,7 @@ tensorflow-io-gcs-filesystem = [
 ]
 tensorflow-hub = "^0.15.0"
 scipy = "^1.11.3"
+numpy = "^1.26.1"
 
 
 [build-system]

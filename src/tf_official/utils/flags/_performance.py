@@ -194,7 +194,7 @@ def define_performance(num_parallel_calls=False, inter_op=False, intra_op=False,
       # Currently, this flag is only defined for the estimator resnet and transformer models.
       flags.DEFINE_enum(
           name="fp16_implementation", default="casting",
-          enum_values=("casting', 'graph_rewrite"),
+          enum_values=("casting", "graph_rewrite"),
           help=help_wrap(
               "When --dtype=fp16, how fp16 should be implemented. This has no "
               "impact on correctness. 'casting' will cause manual tf.casts to "

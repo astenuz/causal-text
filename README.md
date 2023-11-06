@@ -19,6 +19,8 @@ All code in tf_official is taken from https://github.com/tensorflow/models/tree/
 1. Download BERT-Base, Uncased pre-trained model following instructions at https://github.com/tensorflow/models/tree/master/official/nlp/bert
 Extract to ../pre-trained/uncased_L-12_H-768_A-12
 
+Update: Now the files are here https://github.com/google-research/bert, choose in the table L=12 and H=768
+
 2. in src/  
 ```
     run python -m PeerRead.model.run_causal_bert \
